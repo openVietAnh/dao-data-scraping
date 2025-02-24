@@ -15,14 +15,25 @@ try:
         port=DB_PORT,
         user=DB_USER,
         password=DB_PASSWORD,
+        database=os.getenv("DB_NAME")
     )
     print("Connected successfully!")
 
     cursor = conn.cursor()
-    cursor.execute("SHOW DATABASES;")
-    for db in cursor.fetchall():
-        print(db)
+    # cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME};")
+    # print(f"Database '{DB_NAME}' created successfully!")
 
+    table_name = "spaces"
+    cursor.execute(f"DESCRIBE {table_name};")
+    columns = cursor.fetchall()
+
+    # Print summary
+    print(f"Structure of table `{table_name}`:")
+    for column in columns:
+        print(
+            f"Column: {column[0]}, Type: {column[1]}, Nullable: {column[2]}, Key: {column[3]}, Default: {column[4]}, Extra: {column[5]}")
+
+    # Close connection
     cursor.close()
     conn.close()
 
