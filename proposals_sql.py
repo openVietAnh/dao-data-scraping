@@ -6,17 +6,14 @@ import re
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Database credentials from .env
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = int(os.getenv("DB_PORT", 3306))
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Connect to MySQL database with utf8mb4 support
 conn = mysql.connector.connect(
     host=DB_HOST,
     port=DB_PORT,
@@ -26,28 +23,26 @@ conn = mysql.connector.connect(
 )
 cursor = conn.cursor()
 
-# Function to remove emojis
 def remove_emojis(text):
-    if isinstance(text, str):  # Ensure it's a string before removing emojis
+    if isinstance(text, str):
         return re.sub(r'[\U00010000-\U0010FFFF]', '', text, flags=re.UNICODE)
     return text
 
-# Read space IDs from CSV file
 spaces_id = []
-with open('spaces_by_proposals_count.csv', 'r', encoding='utf8') as f:
-    reader = csv.reader(f, delimiter=',')
-    next(reader, None)  # Skip header
+with open('top_dao', 'r', encoding='utf8') as f:
+    lines = f.readlines()
 
-    for item in reader:
-        spaces_id.append(item[0])
+    for item in lines:
+        spaces_id.append(item.strip())
 
-# Process each space ID
-for space_id in spaces_id[:50]:
+print(spaces_id)
+
+for space_id in spaces_id:
     url = "https://hub.snapshot.org/graphql?"
     headers = {"accept": "application/json", "content-type": "application/json"}
 
     start_time = 1605388716
-    all_proposals = []  # Store proposals for bulk insertion
+    all_proposals = []
 
     while True:
         query = f"""
@@ -75,7 +70,6 @@ for space_id in spaces_id[:50]:
         }}
         """
 
-        # Prepare and send request
         payload = {"query": query, "variables": None, "operationName": "Proposals"}
         response = requests.post(url, headers=headers, json=payload)
 
@@ -84,11 +78,10 @@ for space_id in spaces_id[:50]:
             fetched_proposals = data.get("data", {}).get("proposals", [])
 
             if not fetched_proposals:
-                break  # No new proposals, stop fetching
+                break
 
             print(f"Fetched {len(fetched_proposals)} proposals from {start_time}")
 
-            # Prepare bulk insert data
             for item in fetched_proposals:
                 proposal_id = remove_emojis(item["id"])  # Remove emojis from ID
                 title = remove_emojis(item.get("title", ""))
@@ -111,9 +104,8 @@ for space_id in spaces_id[:50]:
 
         else:
             print(f"Request failed with status code {response.status_code}: {response.text}")
-            break  # Stop on failure
+            break
 
-    # Bulk insert proposals into MySQL
     if all_proposals:
         sql = """
         INSERT INTO proposals (id, space_id, title, body, choices, start, end, snapshot, state, author)
@@ -131,7 +123,6 @@ for space_id in spaces_id[:50]:
         cursor.executemany(sql, all_proposals)  # Bulk insert
         conn.commit()
 
-# Close MySQL connection
 cursor.close()
 conn.close()
 print("Proposals successfully saved to MySQL in bulk!")
