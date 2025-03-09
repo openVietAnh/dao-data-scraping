@@ -28,6 +28,10 @@ class SQL:
         self.cursor.close()
         self.connection.close()
 
+    def read_data(self, query):
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
     def execute_many(self, query, values):
         self.cursor.executemany(query, values)
         self.connection.commit()
