@@ -1,23 +1,29 @@
 import json
-import time
-from datetime import timezone, datetime
+from datetime import datetime, timezone, datetime
 
 from src.db.sql import SQL
 from src.graphql.snapshot_request import request
 
-def get_snapshot_votes(space_id):
+def get_snapshot_votes(space_id, missing_file = None):
     db_connection = SQL()
 
-    db_connection.cursor.execute("SELECT id FROM proposals WHERE space_id = '" + space_id + "'")
-    existing_proposal_ids = {row[0] for row in db_connection.cursor.fetchall()}
+    if not missing_file:
+        db_connection.cursor.execute("SELECT id FROM proposals WHERE space_id = '" + space_id + "'")
+        existing_proposal_ids = {row[0] for row in db_connection.cursor.fetchall()}
+    else:
+        with open(missing_file) as f:
+            existing_proposal_ids = {proposal_id for proposal_id in map(lambda x: x.strip(), f.readlines())}
 
     sql = """
     INSERT IGNORE INTO votes (id, ipfs, created, voter, space_id, proposal_id, choice, metadata, reason, vp, vp_by_strategy, vp_state) 
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-
     for proposal_id in existing_proposal_ids:
         start_time = 0
+        if missing_file:
+            data = db_connection.read_data("SELECT created from votes where proposal_id = '" + proposal_id + "' order by created desc limit 1")
+            if len(data) > 0:
+                start_time = int(data[0][0].replace(tzinfo=timezone.utc).timestamp())
         while True:
             query = f"""
             query Votes {{
@@ -55,8 +61,6 @@ def get_snapshot_votes(space_id):
 
             if response.status_code == 200:
                 data = response.json()
-                # if len(data["data"]["votes"]) == 0:
-                #     time.sleep(1)
                 fetched_votes = data.get("data", {}).get("votes", [])
                 if not fetched_votes:
                     break
@@ -81,7 +85,6 @@ def get_snapshot_votes(space_id):
                         json.dumps(item.get("vp_by_strategy", [])),
                         item["vp_state"]
                     ))
-                print(len(all_votes))
                 if all_votes:
                     db_connection.execute_many(sql, all_votes)
                     print(f"Inserted {len(all_votes)} votes into database.")
