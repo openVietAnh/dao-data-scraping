@@ -1,18 +1,21 @@
+import json
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 from src.db.sql import SQL
 
 sql = SQL()
+SPACE_ID = "uniswapgovernance.eth"
 
 print("Fetching proposals...")
-data = sql.read_data("SELECT id FROM proposals where space_id = 'uniswapgovernance.eth'")
+data = sql.read_data(f"SELECT id FROM proposals where space_id = '{SPACE_ID}'")
 
 proposals_mapping = {proposal_id: index for index, proposal_id in enumerate(map(lambda item: item[0], data))}
 
 print("Number of proposals: {}".format(len(proposals_mapping.keys())))
 
 print("Fetching top voters...")
-TOP_VOTER_QUERY = "SELECT count(*) as count, voter FROM votes where space_id = 'uniswapgovernance.eth' group by voter order by count(*) desc limit 15"
+TOP_VOTER_QUERY = f"SELECT count(*) as count, voter FROM votes where space_id = '{SPACE_ID}' group by voter order by count(*) desc limit 800"
 
 top_voters = [row[1] for row in sql.read_data(TOP_VOTER_QUERY)]
 
@@ -20,21 +23,51 @@ voting_map = {voter: [0 for item in range(len(proposals_mapping.keys()))] for vo
 
 top_voters_condition = "(" + ', '.join(map(lambda voter: f"'{voter}'", top_voters)) + ")"
 
-print("Fetching votes...")
-VOTES_QUERY = "select proposal_id, voter from votes where space_id = 'uniswapgovernance.eth' and voter in " + top_voters_condition
+print("Fetching votes in batches...")
 
-print(VOTES_QUERY)
+BATCH_SIZE = 1000  # Adjust based on performance needs
+offset = 0
 
-voting_data = sql.read_data(VOTES_QUERY)
+while True:
+    VOTES_QUERY = f"""
+        SELECT proposal_id, voter, choice
+        FROM votes
+        WHERE space_id = '{SPACE_ID}'
+        AND voter IN {top_voters_condition}
+        LIMIT {BATCH_SIZE} OFFSET {offset}
+    """
 
-for item in voting_data:
-    voting_map[item[1]][proposals_mapping[item[0]]] = 1
+    batch = sql.read_data(VOTES_QUERY)
 
-coalitions = [[0 for i in range(15)] for i in range(15)]
+    if not batch:
+        break  # Stop when there are no more records
 
-for i in range(0, 15):
-    for j in range(i + 1, 15):
+    print(f"Fetched {len(batch)} votes (offset: {offset})")
+
+    for item in batch:
+        proposal_id, voter, choice = item
+        unique_int = hash(json.dumps(choice, sort_keys=True))  # Ensures consistent hashing
+
+        voting_map[voter][proposals_mapping[proposal_id]] = unique_int
+
+    offset += BATCH_SIZE  # Move to the next batch
+
+print("Finished fetching all votes.")
+
+with open("uniswap_voting_map.csv", "w") as f:
+    for voter in top_voters:
+        f.write(f"{",".join(map(lambda x: str(x), voting_map[voter]))}\n")
+
+coalitions = [[0 for i in range(len(top_voters))] for i in range(len(top_voters))]
+
+for i in range(0, len(top_voters)):
+    for j in range(i + 1, len(top_voters)):
         coalitions[i][j] = coalitions[j][i] = float(cosine_similarity([voting_map[top_voters[i]]], [voting_map[top_voters[j]]])[0][0])
 
-for item in coalitions:
-    print(item)
+with open("uniswap_coalitions.csv", "w") as f:
+    for item in coalitions:
+        f.write(f"{",".join(map(lambda x: str(x), item))}\n")
+
+with open("uniswap_top_voters.txt", "w") as f:
+    for voter in top_voters:
+        f.write(f"{voter}\n")
