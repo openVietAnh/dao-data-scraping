@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from src.db.sql import SQL
 
 sql = SQL()
-SPACE_ID = "uniswapgovernance.eth"
+SPACE_ID = "gnosis.eth"
 
 print("Fetching proposals...")
 data = sql.read_data(f"SELECT id FROM proposals where space_id = '{SPACE_ID}'")
@@ -15,7 +15,7 @@ proposals_mapping = {proposal_id: index for index, proposal_id in enumerate(map(
 print("Number of proposals: {}".format(len(proposals_mapping.keys())))
 
 print("Fetching top voters...")
-TOP_VOTER_QUERY = f"SELECT count(*) as count, voter FROM votes where space_id = '{SPACE_ID}' group by voter order by count(*) desc limit 800"
+TOP_VOTER_QUERY = f"SELECT count(*) as count, voter FROM votes where space_id = '{SPACE_ID}' group by voter order by count(*) desc limit 1000"
 
 top_voters = [row[1] for row in sql.read_data(TOP_VOTER_QUERY)]
 
@@ -25,7 +25,7 @@ top_voters_condition = "(" + ', '.join(map(lambda voter: f"'{voter}'", top_voter
 
 print("Fetching votes in batches...")
 
-BATCH_SIZE = 1000  # Adjust based on performance needs
+BATCH_SIZE = 1000
 offset = 0
 
 while True:
@@ -54,20 +54,20 @@ while True:
 
 print("Finished fetching all votes.")
 
-with open("uniswap_voting_map.csv", "w") as f:
+with open(f"{SPACE_ID}_voting_map.csv", "w") as f:
     for voter in top_voters:
         f.write(f"{",".join(map(lambda x: str(x), voting_map[voter]))}\n")
 
-coalitions = [[0 for i in range(len(top_voters))] for i in range(len(top_voters))]
+coalitions = [[1 for i in range(len(top_voters))] for i in range(len(top_voters))]
 
 for i in range(0, len(top_voters)):
     for j in range(i + 1, len(top_voters)):
         coalitions[i][j] = coalitions[j][i] = float(cosine_similarity([voting_map[top_voters[i]]], [voting_map[top_voters[j]]])[0][0])
 
-with open("uniswap_coalitions.csv", "w") as f:
+with open(f"{SPACE_ID}_coalitions.csv", "w") as f:
     for item in coalitions:
         f.write(f"{",".join(map(lambda x: str(x), item))}\n")
 
-with open("uniswap_top_voters.txt", "w") as f:
+with open(f"{SPACE_ID}_top_voters.txt", "w") as f:
     for voter in top_voters:
         f.write(f"{voter}\n")
