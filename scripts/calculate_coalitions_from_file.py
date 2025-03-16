@@ -2,13 +2,15 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime,timedelta
 
 FILE_NAME = "opcollective.eth_voting_map.csv"
+SPACE_ID = "opcollective.eth"
 
 voting_map = {}
+VOTERS_LIMIT = 3666
 
 with open(FILE_NAME, "r") as csvfile:
     data = csvfile.readlines()
-    voters_num = len(data)
-    for i, line in enumerate(data):
+    voters_num = VOTERS_LIMIT
+    for i, line in enumerate(data[:voters_num]):
         voting_map[i] = list(map(int, line.strip().split(',')))
 
 coalitions = [[1 for i in range(voters_num)] for i in range(voters_num)]
@@ -28,6 +30,10 @@ for i in range(0, voters_num):
         remaining_iterations = total - count
         estimated_completion_time = datetime.now() + avg_time_per_iteration * remaining_iterations
 
-        print(f"Estimated completion time: {estimated_completion_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[{datetime.now()}] Calculated {i}-{j};Estimated completion time: {estimated_completion_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+with open(f"{SPACE_ID}_coalitions.csv", "w") as f:
+    for item in coalitions:
+        f.write(f"{",".join(map(lambda x: str(x), item))}\n")
 
 print("Processing complete.")
