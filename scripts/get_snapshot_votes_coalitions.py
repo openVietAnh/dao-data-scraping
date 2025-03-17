@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from src.db.sql import SQL
 
 sql = SQL()
-SPACE_ID = "gnosis.eth"
+SPACE_ID = "arbitrumfoundation.eth"
 
 print("Fetching proposals...")
 data = sql.read_data(f"SELECT id FROM proposals where space_id = '{SPACE_ID}'")
@@ -15,7 +15,7 @@ proposals_mapping = {proposal_id: index for index, proposal_id in enumerate(map(
 print("Number of proposals: {}".format(len(proposals_mapping.keys())))
 
 print("Fetching top voters...")
-TOP_VOTER_QUERY = f"SELECT count(*) as count, voter FROM votes where space_id = '{SPACE_ID}' group by voter order by count(*) desc limit 1000"
+TOP_VOTER_QUERY = f"SELECT count(*) as count, voter FROM votes where space_id = '{SPACE_ID}' group by voter order by count(*) desc limit 1165"
 
 top_voters = [row[1] for row in sql.read_data(TOP_VOTER_QUERY)]
 
@@ -28,29 +28,23 @@ print("Fetching votes in batches...")
 BATCH_SIZE = 1000
 offset = 0
 
-while True:
+for voter in top_voters:
     VOTES_QUERY = f"""
         SELECT proposal_id, voter, choice
         FROM votes
         WHERE space_id = '{SPACE_ID}'
-        AND voter IN {top_voters_condition}
-        LIMIT {BATCH_SIZE} OFFSET {offset}
+        AND voter = '{voter}'
     """
 
-    batch = sql.read_data(VOTES_QUERY)
+    data = sql.read_data(VOTES_QUERY)
 
-    if not batch:
-        break  # Stop when there are no more records
+    print(f"Fetched {len(data)} votes from {voter}")
 
-    print(f"Fetched {len(batch)} votes (offset: {offset})")
-
-    for item in batch:
+    for item in data:
         proposal_id, voter, choice = item
         unique_int = hash(json.dumps(choice, sort_keys=True))  # Ensures consistent hashing
 
         voting_map[voter][proposals_mapping[proposal_id]] = unique_int
-
-    offset += BATCH_SIZE  # Move to the next batch
 
 print("Finished fetching all votes.")
 
