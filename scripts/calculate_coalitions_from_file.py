@@ -16,7 +16,7 @@ with open(FILE_NAME, "r") as csvfile:
 coalitions = [[1 for i in range(voters_num)] for i in range(voters_num)]
 count = 0
 
-total = voters_num * (voters_num + 1) // 2
+total = voters_num * (voters_num - 1) // 2
 
 start_time = datetime.now()
 for i in range(0, voters_num):
@@ -24,13 +24,12 @@ for i in range(0, voters_num):
         coalitions[i][j] = coalitions[j][i] = float(cosine_similarity([voting_map[i]], [voting_map[j]])[0][0])
         count += 1
 
-        # Estimate remaining time
         elapsed_time = datetime.now() - start_time
         avg_time_per_iteration = elapsed_time / count
         remaining_iterations = total - count
         estimated_completion_time = datetime.now() + avg_time_per_iteration * remaining_iterations
 
-        print(f"[{datetime.now()}] Calculated {i}-{j};Estimated completion time: {estimated_completion_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[{datetime.now()}] Calculated {i}-{j};Estimated completion time: {estimated_completion_time.strftime('%H:%M:%S')}")
 
 with open(f"{SPACE_ID}_coalitions.csv", "w") as f:
     for item in coalitions:
