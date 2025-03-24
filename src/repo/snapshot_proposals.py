@@ -2,6 +2,8 @@ import json
 
 from src.db.sql import SQL
 from src.graphql.snapshot_request import request
+from src.utils.emoji_utils import remove_emojis
+
 
 def get_snapshot_proposals(space_id):
     db_connection = SQL()
@@ -49,7 +51,7 @@ def get_snapshot_proposals(space_id):
                 item["id"],
                 space_id,
                 item.get("title", ""),
-                item.get("body", ""),
+                remove_emojis(item.get("body", "")),
                 json.dumps(
                     [choice for choice in item.get("choices", [])]
                 ),
