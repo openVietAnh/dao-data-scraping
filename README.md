@@ -4,7 +4,7 @@ Scraping DAO data from the blockchain
 
 ## Database Schema
 
-![DB Schema](schema.png "The database schema for the 'dao' database")
+![DB Schema](https://github.com/openVietAnh/dao-data-scraping/blob/main/schema.png?raw=true "The database schema for the 'dao' database")
 
 ## Methodology
 
